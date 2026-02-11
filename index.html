@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa EV - Leaflet</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+        }
+        
+        #map {
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        /* Panel de información */
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            max-width: 320px;
+        }
+        
+        .info-panel h2 {
+            margin: 0 0 15px 0;
+            font-size: 20px;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .info-panel .stat {
+            margin: 8px 0;
+            font-size: 14px;
+            color: #555;
+        }
+        
+        .info-panel .stat strong {
+            color: #2c3e50;
+        }
+        
+        /* Selector de país */
+        .country-selector {
+            position: absolute;
+            bottom: 30px;
+            left: 20px;
+            z-index: 1000;
+        }
+        
+        .country-selector select {
+            padding: 10px 15px;
+            font-size: 14px;
+            border: 2px solid #4A90E2;
+            border-radius: 8px;
+            background: white;
+            color: #2c3e50;
+            cursor: pointer;
+            outline: none;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            min-width: 200px;
+        }
+        
+        .country-selector select:hover {
+            border-color: #357ABD;
+        }
+        
+        /* Leyenda */
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+        
+        .legend h4 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #2c3e50;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 6px 0;
+            font-size: 12px;
+            color: #555;
+        }
+        
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-right: 8px;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* Loading */
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            z-index: 10000;
+            text-align: center;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4A90E2;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        #loading p {
+            margin: 0;
+            color: #2c3e50;
+            font-size: 16px;
+        }
+        
+        /* Personalización de popups */
+        .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+            padding: 0;
+        }
+        
+        .leaflet-popup-content {
+            margin: 15px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        
+        .popup-title {
+            font-weight: bold;
+            font-size: 14px;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        
+        .popup-detail {
+            margin: 4px 0;
+            color: #555;
+        }
+        
+        /* Panel de distancias */
+        .distance-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            min-width: 350px;
+            display: none;
+        }
+        
+        .distance-panel.active {
+            display: block;
+        }
+        
+        .distance-panel h3 {
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .route-segment {
+            padding: 8px 0;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .route-segment:last-of-type {
+            border-bottom: none;
+        }
+        
+        .route-number {
+            background: #4A90E2;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        
+        .route-info {
+            flex: 1;
+        }
+        
+        .route-name {
+            font-size: 13px;
+            color: #2c3e50;
+            margin-bottom: 2px;
+        }
+        
+        .route-distance {
+            font-size: 12px;
+            color: #777;
+        }
+        
+        .route-total {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 2px solid #4A90E2;
+            text-align: center;
+        }
+        
+        .route-total-label {
+            font-size: 14px;
+            color: #2c3e50;
+            font-weight: bold;
+        }
+        
+        .route-total-value {
+            font-size: 24px;
+            color: #4A90E2;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        
+        .clear-route-btn {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            width: 100%;
+            transition: background 0.3s;
+        }
+        
+        .clear-route-btn:hover {
+            background: #c0392b;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading -->
+    <div id="loading">
+        <div class="spinner"></div>
+        <p>Cargando 10,000 estaciones...</p>
+    </div>
+    
+    <!-- Mapa -->
+    <div id="map"></div>
+    
+    <!-- Panel de información -->
+    <div class="info-panel">
+        <h2>🔌 Estaciones de carga para vehículos eléctricos</h2>
+        <div class="stat">
+            <strong>Visibles:</strong> <span id="visible-stations">0</span>
+        </div>
+        <div class="stat">
+            <strong>País:</strong> <span id="current-country">Todos</span>
+        </div>
+        <div class="stat" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0; color: #4A90E2; font-weight: 500;">
+            📍 Selecciona al menos 2 puntos para crear una ruta
+        </div>
+    </div>
+    
+    <!-- Selector de país -->
+    <div class="country-selector">
+        <select id="country-select">
+            <option value="ALL">🌍 Todos los países</option>
+        </select>
+    </div>
+    
+    <!-- Panel de distancias -->
+    <div class="distance-panel" id="distance-panel">
+        <h3>📍 Ruta seleccionada</h3>
+        <div id="route-segments"></div>
+        <div class="route-total">
+            <div class="route-total-label">Distancia total</div>
+            <div class="route-total-value" id="total-distance">0 km</div>
+            <button class="clear-route-btn" onclick="clearRoute()">🗑️ Limpiar ruta</button>
+        </div>
+    </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // Color único para todos los puntos
+        const pointColor = '#4A90E2';  // Azul
+        
+        // Variables globales
+        let map;
+        let markersLayer;
+        let allStations = [];
+        let currentCountry = 'ALL';
+        
+        // Variables para selección múltiple y distancias
+        let selectedPoints = [];
+        let routeLine = null;
+        let routeMarkers = [];
+        let openPopupMarkers = [];  // Guardar markers con popups abiertos
+        
+        // Función para obtener color (ahora siempre azul)
+        function getColorByOperator(operator) {
+            return pointColor;  // Todos los puntos azules
+        }
+        
+        // Diccionario COMPLETO: Código ISO → Nombre en castellano
+        const countryNames = {
+            'AE': 'Emiratos Árabes Unidos',
+            'AL': 'Albania',
+            'AM': 'Armenia',
+            'AT': 'Austria',
+            'AU': 'Australia',
+            'AZ': 'Azerbaiyán',
+            'BA': 'Bosnia y Herzegovina',
+            'BE': 'Bélgica',
+            'BG': 'Bulgaria',
+            'BR': 'Brasil',
+            'CA': 'Canadá',
+            'CH': 'Suiza',
+            'CN': 'China',
+            'CO': 'Colombia',
+            'CR': 'Costa Rica',
+            'CY': 'Chipre',
+            'CZ': 'República Checa',
+            'DE': 'Alemania',
+            'DK': 'Dinamarca',
+            'DO': 'República Dominicana',
+            'EC': 'Ecuador',
+            'EE': 'Estonia',
+            'EG': 'Egipto',
+            'ES': 'España',
+            'FI': 'Finlandia',
+            'FR': 'Francia',
+            'GB': 'Reino Unido',
+            'GE': 'Georgia',
+            'GR': 'Grecia',
+            'GT': 'Guatemala',
+            'HR': 'Croacia',
+            'HU': 'Hungría',
+            'ID': 'Indonesia',
+            'IE': 'Irlanda',
+            'IL': 'Israel',
+            'IN': 'India',
+            'IT': 'Italia',
+            'JM': 'Jamaica',
+            'JO': 'Jordania',
+            'JP': 'Japón',
+            'LI': 'Liechtenstein',
+            'LK': 'Sri Lanka',
+            'LT': 'Lituania',
+            'LU': 'Luxemburgo',
+            'LV': 'Letonia',
+            'MA': 'Marruecos',
+            'MD': 'Moldavia',
+            'MT': 'Malta',
+            'MX': 'México',
+            'MY': 'Malasia',
+            'NL': 'Países Bajos',
+            'NO': 'Noruega',
+            'NP': 'Nepal',
+            'NZ': 'Nueva Zelanda',
+            'PA': 'Panamá',
+            'PL': 'Polonia',
+            'PT': 'Portugal',
+            'PY': 'Paraguay',
+            'RO': 'Rumanía',
+            'RS': 'Serbia',
+            'RU': 'Rusia',
+            'SE': 'Suecia',
+            'SI': 'Eslovenia',
+            'SK': 'Eslovaquia',
+            'TN': 'Túnez',
+            'TR': 'Turquía',
+            'UA': 'Ucrania',
+            'US': 'Estados Unidos',
+            'UY': 'Uruguay',
+            'UZ': 'Uzbekistán',
+            'VN': 'Vietnam',
+            'ZA': 'Sudáfrica'
+        };
+        
+        // Calcular distancia entre dos puntos (Haversine)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Radio de la Tierra en km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * 
+                      Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+        
+        // Actualizar visualización de ruta
+        function updateRoute() {
+            const panel = document.getElementById('distance-panel');
+            const segmentsDiv = document.getElementById('route-segments');
+            const totalDistanceDiv = document.getElementById('total-distance');
+            
+            if (selectedPoints.length === 0) {
+                panel.classList.remove('active');
+                return;
+            }
+            
+            if (selectedPoints.length === 1) {
+                panel.classList.add('active');
+                segmentsDiv.innerHTML = `
+                    <div class="route-segment">
+                        <div class="route-number">1</div>
+                        <div class="route-info">
+                            <div class="route-name">${selectedPoints[0].title}</div>
+                            <div class="route-distance">Punto inicial</div>
+                        </div>
+                    </div>
+                `;
+                totalDistanceDiv.textContent = '0 km';
+                return;
+            }
+            
+            // Borrar línea anterior
+            if (routeLine) map.removeLayer(routeLine);
+            
+            // Borrar marcadores numerados anteriores
+            routeMarkers.forEach(marker => map.removeLayer(marker));
+            routeMarkers = [];
+            
+            // Dibujar nueva línea
+            const coords = selectedPoints.map(p => p.coords);
+            routeLine = L.polyline(coords, {
+                color: '#4A90E2',
+                weight: 3,
+                opacity: 0.7,
+                dashArray: '10, 5'
+            }).addTo(map);
+            
+            // Añadir marcadores numerados
+            selectedPoints.forEach((point, index) => {
+                const numberMarker = L.marker(point.coords, {
+                    icon: L.divIcon({
+                        className: 'custom-number-marker',
+                        html: `<div style="
+                            background: #4A90E2;
+                            color: white;
+                            width: 30px;
+                            height: 30px;
+                            border-radius: 50%;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-weight: bold;
+                            border: 3px solid white;
+                            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                        ">${index + 1}</div>`,
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 15]
+                    })
+                }).addTo(map);
+                routeMarkers.push(numberMarker);
+            });
+            
+            // Calcular y mostrar distancias
+            let html = '';
+            let totalDistance = 0;
+            
+            selectedPoints.forEach((point, index) => {
+                if (index < selectedPoints.length - 1) {
+                    const nextPoint = selectedPoints[index + 1];
+                    const distance = calculateDistance(
+                        point.coords[0], point.coords[1],
+                        nextPoint.coords[0], nextPoint.coords[1]
+                    );
+                    totalDistance += distance;
+                    
+                    html += `
+                        <div class="route-segment">
+                            <div class="route-number">${index + 1}</div>
+                            <div class="route-info">
+                                <div class="route-name">${point.title}</div>
+                                <div class="route-distance">↓ ${distance.toFixed(1)} km</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            
+            // Último punto
+            const lastPoint = selectedPoints[selectedPoints.length - 1];
+            html += `
+                <div class="route-segment">
+                    <div class="route-number">${selectedPoints.length}</div>
+                    <div class="route-info">
+                        <div class="route-name">${lastPoint.title}</div>
+                        <div class="route-distance">Punto final</div>
+                    </div>
+                </div>
+            `;
+            
+            segmentsDiv.innerHTML = html;
+            totalDistanceDiv.textContent = `${totalDistance.toFixed(1)} km`;
+            panel.classList.add('active');
+        }
+        
+        // Limpiar ruta seleccionada
+        function clearRoute() {
+            selectedPoints = [];
+            if (routeLine) map.removeLayer(routeLine);
+            routeMarkers.forEach(marker => map.removeLayer(marker));
+            routeMarkers = [];
+            
+            // Cerrar todos los popups abiertos
+            openPopupMarkers.forEach(marker => marker.closePopup());
+            openPopupMarkers = [];
+            
+            document.getElementById('distance-panel').classList.remove('active');
+        }
+        
+        // Inicializar mapa
+        function initMap() {
+            // Crear mapa centrado en el mundo
+            map = L.map('map', {
+                center: [20, 0],
+                zoom: 2,
+                minZoom: 2,
+                maxZoom: 18,
+                zoomControl: false,
+                maxBounds: [[-90, -180], [90, 180]],
+                maxBoundsViscosity: 1.0,
+                worldCopyJump: false,
+                noWrap: true
+            });
+            
+            // Añadir controles de zoom en esquina inferior derecha
+            L.control.zoom({
+                position: 'bottomright'
+            }).addTo(map);
+            
+            // Añadir capa de tiles (OpenStreetMap)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19,
+                noWrap: true
+            }).addTo(map);
+            
+            // Crear capa para los marcadores
+            markersLayer = L.layerGroup().addTo(map);
+            
+            console.log('✅ Mapa inicializado');
+        }
+        
+        // Cargar estaciones
+        function loadStations() {
+            fetch('ev_stations.geojson')
+                .then(response => response.json())
+                .then(data => {
+                    allStations = data.features;
+                    console.log(`✅ Cargadas ${allStations.length} estaciones`);
+                    
+                    // Llenar selector de países
+                    populateCountrySelector();
+                    
+                    // Mostrar estaciones
+                    displayStations();
+                    
+                    // Ocultar loading
+                    document.getElementById('loading').style.display = 'none';
+                })
+                .catch(error => {
+                    console.error('❌ Error cargando estaciones:', error);
+                    alert('Error al cargar las estaciones. Verifica que ev_stations.geojson esté en la carpeta.');
+                });
+        }
+        
+        // Llenar selector de países
+        function populateCountrySelector() {
+            const countries = new Set();
+            allStations.forEach(station => {
+                const country = station.properties.country;
+                if (country) countries.add(country);
+            });
+            
+            const select = document.getElementById('country-select');
+            
+            // Crear array de países con formato "ISO - Nombre"
+            const countriesArray = Array.from(countries).map(isoCode => ({
+                value: isoCode,
+                display: `${isoCode} - ${countryNames[isoCode] || isoCode}`
+            })).sort((a, b) => a.display.localeCompare(b.display));
+            
+            // Añadir opciones al selector
+            countriesArray.forEach(({value, display}) => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = display;
+                select.appendChild(option);
+            });
+            
+            // Evento de cambio
+            select.addEventListener('change', (e) => {
+                currentCountry = e.target.value;
+                displayStations();
+                updateStats();
+            });
+        }
+        
+        // Mostrar estaciones en el mapa
+        function displayStations() {
+            // Limpiar marcadores existentes
+            markersLayer.clearLayers();
+            
+            // Limpiar referencias a popups abiertos (ya que los markers se eliminaron)
+            openPopupMarkers = [];
+            
+            // Filtrar estaciones
+            const stationsToShow = currentCountry === 'ALL' 
+                ? allStations 
+                : allStations.filter(s => s.properties.country === currentCountry);
+            
+            console.log(`Mostrando ${stationsToShow.length} estaciones`);
+            
+            // Añadir marcadores
+            stationsToShow.forEach(station => {
+                const coords = station.geometry.coordinates;
+                const props = station.properties;
+                
+                // Crear marcador circular
+                const color = getColorByOperator(props.operator);
+                
+                const marker = L.circleMarker([coords[1], coords[0]], {
+                    radius: 5,
+                    fillColor: color,
+                    color: '#fff',
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                });
+                
+                // Popup con información
+                const popupContent = `
+                    <div class="popup-title">${props.title || 'Sin nombre'}</div>
+                    <div class="popup-detail">📍 ${props.town || 'N/A'}, ${props.country || 'N/A'}</div>
+                    <div class="popup-detail">⚡ ${props.num_connectors || '0'} conectores</div>
+                    <div class="popup-detail">🔌 ${props.connector_types || 'N/A'}</div>
+                    <div class="popup-detail">🏢 ${props.operator || 'Desconocido'}</div>
+                `;
+                
+                marker.bindPopup(popupContent);
+                
+                // Evento click para añadir a ruta
+                marker.on('click', function(e) {
+                    selectedPoints.push({
+                        coords: [coords[1], coords[0]],
+                        title: props.title || props.town || 'Estación sin nombre'
+                    });
+                    updateRoute();
+                    
+                    // Mantener el popup abierto y guardar referencia
+                    marker.openPopup();
+                    if (!openPopupMarkers.includes(marker)) {
+                        openPopupMarkers.push(marker);
+                    }
+                });
+                
+                marker.addTo(markersLayer);
+            });
+            
+            updateStats();
+        }
+        
+        // Actualizar estadísticas
+        function updateStats() {
+            const visibleCount = currentCountry === 'ALL' 
+                ? allStations.length 
+                : allStations.filter(s => s.properties.country === currentCountry).length;
+            
+            document.getElementById('visible-stations').textContent = 
+                visibleCount.toLocaleString();
+            
+            const countryDisplayName = currentCountry === 'ALL' 
+                ? 'Todos' 
+                : (countryNames[currentCountry] || currentCountry);
+            
+            document.getElementById('current-country').textContent = countryDisplayName;
+        }
+        
+        // Inicializar todo
+        window.addEventListener('load', () => {
+            initMap();
+            loadStations();
+        });
+        
+        console.log('%c🌍 Mapa EV con Leaflet.js', 'color: #4A90E2; font-size: 18px; font-weight: bold;');
+        console.log('Mapa mundial real de OpenStreetMap');
+    </script>
+</body>
+</html>
