@@ -14,22 +14,6 @@ Características
 - Perfil de usuario con gestión de múltiples vehículos eléctricos y preferencias de carga.
 - Diseño responsive adaptado a dispositivos de escritorio y móviles.
 
-Estructura del proyecto
-
-
-├── index.html              Punto de entrada de la aplicación
-├── css/
-│   └── styles.css          Estilos de la aplicación
-└── js/
-    ├── config.js           Configuración (API, mapa, regiones)
-    ├── filters.js          Sistema de filtros
-    ├── profile-manager.js  Gestión del perfil y vehículos
-    ├── history-manager.js  Historial de rutas guardadas
-    ├── route-manager.js    Planificador de rutas
-    ├── map-controller.js   Control del mapa y estaciones
-    └── app.js              Inicialización de la aplicación
-
-
 Tecnologías utilizadas
 
 - HTML5 y CSS3 (diseño responsive con variables CSS).
